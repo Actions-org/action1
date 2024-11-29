@@ -1,0 +1,53 @@
+name: GitHub Org Member Contribution Action
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Runs every day at midnight UTC
+  workflow_dispatch:  # Allows manual trigger
+
+jobs:
+  fetch_contributions:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Get Organization Members
+        id: get_members
+        run: |
+          ORGANIZATION="Actions-org"
+          curl -H "Authorization: token ${{ secrets.GIT1HUB_TOKEN }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               "https://api.github.com/orgs/$ORGANIZATION/members?per_page=100" > members.json
+          cat members.json
+
+      - name: Get Contributions
+        id: get_contributions
+        run: |
+          ORGANIZATION="Actions-org"
+          contributors_data="Member,Repository,Contributions\n"
+
+          REPOS=$(curl -H "Authorization: token ${{ secrets.GIT1HUB_TOKEN }}" \
+                       -H "Accept: application/vnd.github.v3+json" \
+                       "https://api.github.com/orgs/$ORGANIZATION/repos?type=all&per_page=100")
+          
+          for repo in $(echo "$REPOS" | jq -r '.[].name'); do
+            CONTRIBUTORS=$(curl -H "Authorization: token ${{ secrets.GIT1HUB_TOKEN }}" \
+                                -H "Accept: application/vnd.github.v3+json" \
+                                "https://api.github.com/repos/$ORGANIZATION/$repo/contributors?per_page=100")
+            for contributor in $(echo "$CONTRIBUTORS" | jq -r '.[] | {login, contributions} | @csv'); do
+              contributor_data=$(echo $contributor | sed 's/"//g')
+              contributors_data+="$contributor_data,$repo\n"
+            done
+          done
+
+          echo "$contributors_data" > contributions.csv
+
+      - name: Commit and Push CSV to Repository
+        run: |
+          git config --global user.email "prasadr8787@gmail.com"
+          git config --global user.name "Prasad"
+          git add contributions.csv
+          git commit -m "Add contributions CSV file"
+          git push origin main  # Pushes to the main branch
