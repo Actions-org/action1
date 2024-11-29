@@ -1,0 +1,71 @@
+name: GitHub Org Member Contribution Action2
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Runs every day at midnight UTC
+  workflow_dispatch:  # Allows manual trigger
+
+jobs:
+  fetch_contributions:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout code (optional if you need repository context)
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      # Step 1: Get Organization Members
+      - name: Get Organization Members
+        id: get_members
+        run: |
+          ORGANIZATION="Actions-org"
+          echo "Fetching members of the organization..."
+          curl -H "Authorization: token ${{ secrets.GIT1HUB_TOKEN }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               "https://api.github.com/orgs/$ORGANIZATION/members?per_page=100" > members.json
+          cat members.json
+
+      # Step 2: Get Contributions per Repository and Process Data
+      - name: Get Contributions
+        id: get_contributions
+        run: |
+          ORGANIZATION="Actions-org"
+          # Initialize an empty array for storing contribution data
+          contributors_data="Member,Repository,Contributions\n"
+
+          # Fetch all repositories for the organization
+          REPOS=$(curl -H "Authorization: token ${{ secrets.GIT1HUB_TOKEN }}" \
+                       -H "Accept: application/vnd.github.v3+json" \
+                       "https://api.github.com/orgs/$ORGANIZATION/repos?type=all&per_page=100")
+          
+          # Loop through each repository
+          for repo in $(echo "$REPOS" | jq -r '.[].name'); do
+            echo "Fetching contributions for repository: $repo"
+            
+            # Get contributors for the current repository
+            CONTRIBUTORS=$(curl -H "Authorization: token ${{ secrets.GIT1HUB_TOKEN }}" \
+                                -H "Accept: application/vnd.github.v3+json" \
+                                "https://api.github.com/repos/$ORGANIZATION/$repo/contributors?per_page=100")
+
+            # Loop through each contributor and collect data
+            for contributor in $(echo "$CONTRIBUTORS" | jq -r '.[] | {login, contributions} | @csv'); do
+              # Format data as CSV
+              contributor_data=$(echo $contributor | sed 's/"//g')
+              contributors_data+="$contributor_data,$repo\n"
+            done
+          done
+
+          # Output the CSV data to a file
+          echo "$contributors_data" > contributions.csv
+
+      # Step 3: Upload the CSV file as an artifact
+      - name: Upload Contributions CSV
+        uses: actions/upload-artifact@v3
+        with:
+          name: contributions-csv
+          path: contributions.csv
+
+      # Optional: Output CSV contents for verification
+      - name: Show CSV File
+        run: |
+          cat contributions.csv
