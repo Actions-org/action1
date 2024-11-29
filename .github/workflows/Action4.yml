@@ -1,8 +1,8 @@
-name: GitHub Org Member Contribution Action (Last 15 minutes)
+name: GitHub Org Member Contribution Action (Last 90 Days)
 
 on:
   schedule:
-    - cron: '*/15 * * * *'  # Run every 15 minutes (cron syntax)
+    - cron: '0 0 * * *'  # Run every day at midnight UTC
   workflow_dispatch:  # Allows manual trigger
 
 jobs:
@@ -25,8 +25,8 @@ jobs:
                "https://api.github.com/orgs/$ORGANIZATION/repos?type=all&per_page=100" > repos.json
           cat repos.json
 
-      # Step 3: Get Contributors from the Last 15 Minutes
-      - name: Get Contributions from the Last 15 Minutes
+      # Step 3: Get Contributions from the Last 90 Days
+      - name: Get Contributions from the Last 90 Days
         id: get_contributions
         run: |
           ORGANIZATION="Actions-org"
@@ -38,19 +38,19 @@ jobs:
           for repo in $REPOS; do
             echo "Fetching commits for repository: $repo"
             
-            # Get commits for the last 15 minutes
+            # Get commits for the last 90 days
             COMMITS=$(curl -H "Authorization: token ${{ secrets.GIT1HUB_TOKEN }}" \
                             -H "Accept: application/vnd.github.v3+json" \
-                            "https://api.github.com/repos/$ORGANIZATION/$repo/commits?since=$(date --date="15 minutes ago" --utc +%FT%TZ)")
+                            "https://api.github.com/repos/$ORGANIZATION/$repo/commits?since=$(date --date="90 days ago" --utc +%FT%TZ)")
 
             # Filter commits and collect contributors
             for commit in $(echo "$COMMITS" | jq -r '.[] | {author: .commit.author.name, date: .commit.author.date}'); do
               commit_date=$(echo $commit | jq -r '.date')
               author=$(echo $commit | jq -r '.author')
 
-              # Check if the commit was made in the last 15 minutes
+              # Check if the commit was made in the last 90 days
               commit_time=$(date -d "$commit_date" +%s)
-              if ((current_time - commit_time <= 900)); then
+              if ((current_time - commit_time <= 7776000)); then  # 90 days in seconds
                 contributors_data+="$author,$repo,1\n"  # Add contributor data
               fi
             done
