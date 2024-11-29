@@ -1,0 +1,44 @@
+name: GitHub Org Member Contribution Action
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Trigger the action once every day at midnight UTC
+  workflow_dispatch:  # Allows manual trigger
+
+jobs:
+  fetch_contributions:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Get Organization Members
+        id: get_members
+        run: |
+          ORGANIZATION="Actions-org"
+          echo "Fetching members of the organization..."
+          curl -H "Authorization: token ${{ secrets.GIT1HUB_TOKEN }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               "https://api.github.com/orgs/$ORGANIZATION/members" > members.json
+          cat members.json
+
+      - name: Get Contributions per Repository
+        id: get_contributions
+        run: |
+          ORGANIZATION="YOUR_ORG_NAME"
+          REPOS=$(curl -H "Authorization: token ${{ secrets.GIT1HUB_TOKEN }}" \
+                       -H "Accept: application/vnd.github.v3+json" \
+                       "https://api.github.com/orgs/$ORGANIZATION/repos?type=all&per_page=100")
+          
+          for repo in $(echo "$REPOS" | jq -r '.[].name'); do
+            echo "Fetching contributions for repository: $repo"
+            CONTRIBUTORS=$(curl -H "Authorization: token ${{ secrets.GIT1HUB_TOKEN }}" \
+                                -H "Accept: application/vnd.github.v3+json" \
+                                "https://api.github.com/repos/$ORGANIZATION/$repo/contributors")
+            echo "Contributors for $repo: $CONTRIBUTORS"
+          done
+
+      - name: Output Contributions Summary
+        run: |
+          echo "Contributions have been fetched. You can now process or display them."
