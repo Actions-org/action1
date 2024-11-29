@@ -16,9 +16,9 @@ jobs:
       - name: Get Organization Members
         id: get_members
         run: |
-          ORGANIZATION="YOUR_ORG_NAME"
+          ORGANIZATION="Action1"
           echo "Fetching members of the organization..."
-          curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          curl -H "Authorization: token ${{ secrets.GIT1HUB_TOKEN }}" \
                -H "Accept: application/vnd.github.v3+json" \
                "https://api.github.com/orgs/$ORGANIZATION/members" > members.json
           cat members.json
@@ -27,13 +27,13 @@ jobs:
         id: get_contributions
         run: |
           ORGANIZATION="YOUR_ORG_NAME"
-          REPOS=$(curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          REPOS=$(curl -H "Authorization: token ${{ secrets.GIT1HUB_TOKEN }}" \
                        -H "Accept: application/vnd.github.v3+json" \
                        "https://api.github.com/orgs/$ORGANIZATION/repos?type=all&per_page=100")
           
           for repo in $(echo "$REPOS" | jq -r '.[].name'); do
             echo "Fetching contributions for repository: $repo"
-            CONTRIBUTORS=$(curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            CONTRIBUTORS=$(curl -H "Authorization: token ${{ secrets.GIT1HUB_TOKEN }}" \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 "https://api.github.com/repos/$ORGANIZATION/$repo/contributors")
             echo "Contributors for $repo: $CONTRIBUTORS"
